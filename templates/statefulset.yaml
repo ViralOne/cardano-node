@@ -1,0 +1,59 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "node-chart.fullname" . }}
+  labels:
+    {{- include "node-chart.labels" . | nindent 4 }}
+spec:
+  {{- if not .Values.autoscaling.enabled }}
+  replicas: {{ .Values.replicaCount }}
+  {{- end }}
+  serviceName: core
+  selector:
+    matchLabels:
+      {{- include "node-chart.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      labels:
+        {{- include "node-chart.selectorLabels" . | nindent 8 }}
+    spec:
+      volumes:
+      - name: node-config
+        projected:
+          sources:
+            - configMap:
+                name: node-config
+            - configMap:
+                name: node-topology
+            - configMap:
+                name: genesis
+      containers:
+        - name: {{ .Chart.Name }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - containerPort: 3001
+              protocol: TCP
+          volumeMounts:
+            - name: node-testnet-db
+              mountPath: {{ .Values.persistence.path }}
+          command: ["cardano-node"]
+          args: ["run", 
+          "--config", "cardano-node/configuration/testnet/testnet-config.json",
+          "--topology", "cardano-node/configuration/testnet/testnet-topology.json",
+          "--port", "3001"
+          ]
+          #  --socket-path ./node-ipc/testnet/node.socket \
+  volumeClaimTemplates:
+  - metadata:
+      name: node-testnet-db
+    spec:
+      accessModes:
+      storageClassName: "{{ .Values.persistence.class }}"
+      resources:
+        requests:
+          storage: "{{ .Values.persistence.size }}"

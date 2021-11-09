@@ -1,14 +1,13 @@
 replicaCount: 1
 
 image:
-  repository: inputoutput/cardano-node
+  repository: viralnico/node-freaks
   pullPolicy: IfNotPresent
-  # Overrides the image tag whose default is the chart appVersion.
-  tag: "1.31.0"
+  tag: "v0.1"
 
+# Environment variables
 env:
   NETWORK: testnet
-  CARDANO_NODE_SOCKET_PATH: "$HOME/cardano/db/node.socket"
 
 imagePullSecrets: []
 nameOverride: ""
@@ -36,17 +35,26 @@ securityContext: {}
   # runAsNonRoot: true
   # runAsUser: 1000
 
+container:
+  ports:
+    tcp: 3001
+
+volumes:
+  config:
+    mountPath: /opt/cardano/config
+
 service:
   type: ClusterIP
   port: 3001
   user: node
-  configDir: /opt/cardano/files/
-  configFile: testnet-config.json\
   externalPort: 3001
   internalPort: 3001
 
 persistence:
   class: node-testnet-db
+  path: /data
+  path-ipc: /ipc
+  accessMode: ReadWriteOnce
   size: 5Gi
   userId: 1000
 
