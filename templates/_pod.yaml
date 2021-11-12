@@ -1,0 +1,87 @@
+{{- define "node-chart.pod" -}}
+
+{{- if .Values.image.pullSecrets }}
+imagePullSecrets:
+{{- toYaml .Values.image.pullSecrets | nindent 2 }}
+{{- end }}
+serviceAccountName: {{ include "node-chart.serviceAccountName" . }}
+{{- if .Values.podSecurityContext }}
+securityContext:
+{{- toYaml .Values.podSecurityContext | nindent 2 }}
+{{- end }}
+containers:
+  - name: {{ .Chart.Name }}
+    {{- if .Values.containerSecurityContext }}
+    securityContext:
+    {{- toYaml .Values.containerSecurityContext | nindent 4 }}
+    {{- end }}
+    image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+    imagePullPolicy: {{ .Values.image.pullPolicy }}
+    {{- with .Values.image.command }}
+    command:
+    {{- toYaml . | nindent 6 }}
+    {{- end }}
+    {{- with .Values.image.args }}
+    args:
+    {{- toYaml . | nindent 6 }}
+    {{- end }}
+    ports:
+      - name: tcp
+        containerPort: {{ .Values.container.ports.tcp }}
+        protocol: TCP
+      - name: metrics
+        containerPort: 12798
+        protocol: TCP
+    env:
+      - name: POD_NAME
+        valueFrom:
+          fieldRef:
+            fieldPath: metadata.name
+      - name: POD_NAMESPACE
+        valueFrom:
+          fieldRef:
+            fieldPath: metadata.namespace
+      - name: CARDANO_NETWORK
+        value: {{ .Values.cardano.network }}
+      - name: CARDANO_BLOCK_PRODUCER
+        value: "{{ .Values.cardano.isBlockProducer }}"
+      - name: CARDANO_PORT
+        value: "{{ .Values.container.ports.tcp }}"
+      - name: CARDANO_BIND_ADDR
+        value: "0.0.0.0"
+    volumeMounts:
+      - name: {{ template "node-chart.fullname" . }}
+        mountPath: /configuration/db/testnet
+        {{- if .Values.storage.subPath }}
+        subPath: {{ .Values.storage.subPath }}
+        {{- end }}
+      - name: config
+        mountPath: /configuration/mainnet//mainnet-topology.json
+        subPath: mainnet-topology.json
+      - name: config
+        mountPath: /configuration/testnet//testnet-topology.json
+        subPath: testnet-topology.json
+    resources:
+      {{- toYaml .Values.resources | nindent 6 }}
+
+volumes:
+  - name: config
+    configMap:
+      name: {{ include "node-chart.fullname" . }}
+
+{{- with .Values.nodeSelector }}
+nodeSelector:
+{{- toYaml . | nindent 2 }}
+{{- end }}
+
+{{- with .Values.affinity }}
+affinity:
+{{- toYaml . | nindent 2 }}
+{{- end }}
+
+{{- with .Values.tolerations }}
+tolerations:
+{{- toYaml . | nindent 2 }}
+{{- end }}
+
+{{- end }}

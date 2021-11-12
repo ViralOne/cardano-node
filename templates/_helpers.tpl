@@ -60,3 +60,17 @@ Create the name of the service account to use
 {{- default "default" .Values.serviceAccount.name }}
 {{- end }}
 {{- end }}
+
+{{/*
+Create the cardano topology JSON config files
+*/}}
+{{- define "cardano.topologyJson" -}}
+{{ $defaultProducers := list (dict "addr" "relays-new.cardano-testnet.iohkdev.io" "port" 3001 "valency" 1 "--testnet-magic" 1097911063) }}
+{{ $producers := list }}
+{{- if gt (len .Values.cardano.producers) 0 -}}
+{{ $producers = concat $defaultProducers .Values.cardano.producers }}
+{{- else -}}
+{{ $producers = $defaultProducers }}
+{{- end -}}
+{{ toPrettyJson (dict "Producers" $producers) }}
+{{- end -}}
