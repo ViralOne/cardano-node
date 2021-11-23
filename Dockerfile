@@ -1,31 +1,82 @@
-FROM debian:stable-slim as build
-
-ENV \
-    ENV=/etc/profile \
-    CARDANO_NODE_PATH=~/cardano-node \
-    CARDANO_NODE_SOCKET_PATH=$CARDANO_NODE_PATH/node-ipc/testnet/node.socket \
-    NETWORK=testnet
-
-WORKDIR /
+FROM debian:stable-slim
 
 # Install dependencies
-RUN apt-get update && apt-get install -y ca-certificates curl git wget jq \
-    && apt clean && apt autoremove -y
+RUN apt-get update -y \
+    && apt-get install -y tmux git jq curl wget libffi-dev libgmp-dev zlib1g-dev  make automake build-essential \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
 
-# Download cardano-node and cardano-cli executable and configuration files
-# https://hydra.iohk.io/job/Cardano/cardano-node/cardano-node-linux/latest-finished
+# Install ghcup
+ENV BOOTSTRAP_HASKELL_NONINTERACTIVE=1
+RUN bash -c "curl --proto '=https' --tlsv1.2 -sSf https://get-ghcup.haskell.org | sh" \
+    && bash -c "curl -sSL https://get.haskellstack.org/ | sh"
+
+# Add ghcup to PATH
+ENV PATH=${PATH}:/root/.local/bin
+ENV PATH=${PATH}:/root/.ghcup/bin
+
+# Install cabal
+RUN bash -c "ghcup upgrade" 
+RUN bash -c "ghcup install cabal 3.4.0.0" 
+RUN bash -c "ghcup set cabal 3.4.0.0"
+
+# Install GHC
+RUN bash -c "ghcup install ghc 8.10.4"
+RUN bash -c "ghcup set ghc 8.10.4"
+
+# Update Path to include Cabal and GHC exports
+RUN bash -c "echo PATH="$HOME/.local/bin:$PATH" >> $HOME/.bashrc" \
+RUN bash -c "echo export LD_LIBRARY_PATH="/usr/local/lib:$LD_LIBRARY_PATH" >> $HOME/.bashrc"
+RUN bash -c "source $HOME/.bashrc"
+
+# Install Node & Walllet
 RUN wget -O cardano-node.tar.gz https://hydra.iohk.io/job/Cardano/cardano-node/cardano-node-linux/latest-finished/download \
-    && mkdir -p cardano-node db/testnet cardano-node/node-ipc/testnet \
+    && wget -O cardano-wallet.tar.gz https://hydra.iohk.io/job/Cardano/cardano-wallet/cardano-wallet-linux64/latest-finished/download \
+    && mkdir -p cardano-wallet cardano-node db/testnet cardano-node/node-ipc/testnet \
     && tar -xzvf cardano-node.tar.gz --directory ./cardano-node \
+    && tar -xzvf cardano-wallet.tar.gz --directory ./cardano-wallet \
+    && cd ./cardano-wallet/cardano-wallet-*/ \
+    && cp -R ./ /usr/local/bin && cd ../../ \
     && cp -R ./cardano-node/./ /usr/local/bin \
-    && rm cardano-node-1.31.0-linux.tar.gz ./cardano-node/./cardano-cli ./cardano-node/./cardano-node ./cardano-node/./cardano-node-chairman ./cardano-node/./cardano-submit-api ./cardano-node/./cardano-testnet ./cardano-node/./cardano-topology ./cardano-node/./scan-blocks ./cardano-node/./scan-blocks-pipelined ./cardano-node/./chain-sync-client-with-ledger-state ./cardano-node/./ledger-state ./cardano-node/./locli ./cardano-node/./stake-credential-history ./cardano-node/./trace-dispatcher-examples ./cardano-node/./tx-generator
+    && rm cardano-wallet.tar.gz cardano-node.tar.gz ./cardano-node/./cardano-cli ./cardano-node/./cardano-node ./cardano-node/./cardano-node-chairman ./cardano-node/./cardano-submit-api ./cardano-node/./cardano-testnet ./cardano-node/./cardano-topology ./cardano-node/./scan-blocks ./cardano-node/./scan-blocks-pipelined ./cardano-node/./chain-sync-client-with-ledger-state ./cardano-node/./ledger-state ./cardano-node/./locli ./cardano-node/./stake-credential-history ./cardano-node/./trace-dispatcher-examples ./cardano-node/./tx-generator
 
-RUN cd ./cardano-node/./ && mkdir -p ./configuration/testnet && cd ./configuration/testnet \
-    && wget https://hydra.iohk.io/build/7654130/download/1/testnet-topology.json \
-    && wget https://hydra.iohk.io/build/7654130/download/1/testnet-shelley-genesis.json \
-    && wget https://hydra.iohk.io/build/7654130/download/1/testnet-config.json \
-    && wget https://hydra.iohk.io/build/7654130/download/1/testnet-byron-genesis.json \
-    && wget https://hydra.iohk.io/build/7654130/download/1/testnet-alonzo-genesis.json
+RUN mkdir -p /etc/nix \
+    && echo "substituters        = https://hydra.iohk.io https://iohk.cachix.org https://cache.nixos.org/" > /etc/nix/nix.conf \
+    && echo "trusted-public-keys = hydra.iohk.io:f/Ea+s+dFdN+3Y/G+FDgSq+a5NEWhJGzdjvKNGv0/EQ= iohk.cachix.org-1:DpRUyj7h7V830dp/i6Nti+NEO2/nhblbov/8MW7Rqoo= cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY=" >> /etc/nix/nix.conf
 
-ENTRYPOINT [ "cardano-node" ]
-#RUN bash -c 'cardano-node run --config cardano-node/configuration/testnet/testnet-config.json --topology cardano-node/configuration/testnet/testnet-topology.json'
+# Add the user freak for security reasons and for Nix
+RUN adduser --disabled-password --gecos '' freak 
+
+# Nix requires ownership of /nix.
+RUN mkdir -m 0755 /nix && chown freak /nix
+
+# Change docker user to freak
+USER freak
+
+# Set some environment variables for Docker and Nix
+ENV USER freak
+
+# Change our working directory to $HOME
+WORKDIR /home/freak
+
+RUN git clone https://github.com/input-output-hk/plutus-apps.git \
+    && cd plutus-apps \
+    # && nix-shell \
+    # && cabal build plutus-pab-examples plutus-chain-index \
+    # && cd plutus-pab/test-node/ &&  && ./start-testnet-node.sh \
+    # && cabal exec -- cardano-wallet serve \
+    # --testnet testnet/testnet-byron-genesis.json \
+    # --node-socket testnet/node.sock \
+    # --port 8090 \
+    # --listen-address $HOST \
+    # && cabal exec -- plutus-chain-index --config testnet/chain-index-config.json start-index
+    && rm -rf /tmp/*
+WORKDIR /home/freak/plutus-apps
+
+# Install Nix - nu il considera instalat...
+# RUN curl -L https://nixos.org/nix/install | sh \
+#     && . /home/freak/.nix-profile/etc/profile.d/nix.sh
+
+ENTRYPOINT [ "bash" ]
+
+#primul lucru din docker shell este sa se instaleze Nix si sa se execute comanda cealalta
