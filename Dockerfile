@@ -29,7 +29,7 @@ RUN bash -c "echo PATH="$HOME/.local/bin:$PATH" >> $HOME/.bashrc" \
 RUN bash -c "echo export LD_LIBRARY_PATH="/usr/local/lib:$LD_LIBRARY_PATH" >> $HOME/.bashrc"
 RUN bash -c "source $HOME/.bashrc"
 
-# Install Node & Walllet
+# Install Node & Wallet
 RUN wget -O cardano-node.tar.gz https://hydra.iohk.io/job/Cardano/cardano-node/cardano-node-linux/latest-finished/download \
     && wget -O cardano-wallet.tar.gz https://hydra.iohk.io/job/Cardano/cardano-wallet/cardano-wallet-linux64/latest-finished/download \
     && mkdir -p cardano-wallet cardano-node db/testnet cardano-node/node-ipc/testnet \

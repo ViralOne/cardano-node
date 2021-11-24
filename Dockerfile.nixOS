@@ -1,0 +1,26 @@
+FROM nixos/nix:2.3.12
+
+RUN echo substituters = "https://hydra.iohk.io https://iohk.cachix.org" >> /etc/nix/nix.conf \
+    && echo trusted-public-keys = "hydra.iohk.io:f/Ea+s+dFdN+3Y/G+FDgSq+a5NEWhJGzdjvKNGv0/EQ= iohk.cachix.org-1:DpRUyj7h7V830dp/i6Nti+NEO2/nhblbov/8MW7Rqoo= cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY=" >> /etc/nix/nix.conf
+
+# Install dependencies
+RUN apk update \
+    && apk add tmux bash git jq curl wget libffi-dev\
+    && rm -rf /tmp/*
+
+# Install Node & Wallet
+RUN wget -O cardano-wallet.tar.gz https://hydra.iohk.io/job/Cardano/cardano-wallet/cardano-wallet-linux64/latest-finished/download \
+    && mkdir -p cardano-wallet db/testnet \
+    && tar -xzvf cardano-wallet.tar.gz --directory ./cardano-wallet \
+    && cd ./cardano-wallet/cardano-wallet-*/ \
+    && cp -R ./ /usr/bin && cd ../../ \
+    && rm -rf ./cardano-wallet cardano-wallet.tar.gz
+
+RUN git clone https://github.com/input-output-hk/plutus-apps.git \
+    && cd plutus-apps 
+
+WORKDIR /plutus-apps
+
+RUN nix-shell
+
+ENTRYPOINT [ "nix-shell" ]
