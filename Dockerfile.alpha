@@ -61,21 +61,9 @@ WORKDIR /home/freak
 
 RUN git clone https://github.com/input-output-hk/plutus-apps.git \
     && cd plutus-apps \
-    # && nix-shell \
-    # && cabal build plutus-pab-examples plutus-chain-index \
-    # && cd plutus-pab/test-node/ &&  && ./start-testnet-node.sh \
-    # && cabal exec -- cardano-wallet serve \
-    # --testnet testnet/testnet-byron-genesis.json \
-    # --node-socket testnet/node.sock \
-    # --port 8090 \
-    # --listen-address $HOST \
-    # && cabal exec -- plutus-chain-index --config testnet/chain-index-config.json start-index
     && rm -rf /tmp/*
-WORKDIR /home/freak/plutus-apps
 
-# Install Nix - nu il considera instalat...
-# RUN curl -L https://nixos.org/nix/install | sh \
-#     && . /home/freak/.nix-profile/etc/profile.d/nix.sh
+WORKDIR /home/freak/plutus-apps
 
 ENTRYPOINT [ "bash" ]
 
