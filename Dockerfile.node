@@ -1,0 +1,22 @@
+FROM debian:stable-slim
+
+# Install dependencies
+RUN apt-get update -y \
+    && apt-get install -y tmux git jq curl wget libffi-dev libgmp-dev zlib1g-dev  make automake build-essential \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Node & Wallet
+RUN wget -O cardano-node.tar.gz https://hydra.iohk.io/job/Cardano/cardano-node/cardano-node-linux/latest-finished/download \
+    && mkdir -p cardano-node db/testnet \
+    && tar -xzvf cardano-node.tar.gz --directory ./cardano-node \
+    && cp -R ./cardano-node/./ /usr/local/bin \
+    && rm -rf ./cardano-node cardano-node.tar.gz
+
+RUN  curl -O -J https://hydra.iohk.io/build/7654130/download/1/testnet-topology.json \
+  && curl -O -J https://hydra.iohk.io/build/7654130/download/1/testnet-shelley-genesis.json \
+  && curl -O -J https://hydra.iohk.io/build/7654130/download/1/testnet-config.json \
+  && curl -O -J https://hydra.iohk.io/build/7654130/download/1/testnet-byron-genesis.json \
+  && curl -O -J https://hydra.iohk.io/build/7654130/download/1/testnet-alonzo-genesis.json
+
+ENTRYPOINT ["cardano-node run --topology testnet-topology.json --host-addr 0.0.0.0 --port 3001 --config testnet-config.json"]
