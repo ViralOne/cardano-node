@@ -1,7 +1,4 @@
 # Cardano Freaks
-
-Foobar is a Python library for dealing with word pluralization.
-
 ## Usage & Instalation
 
 ! Disclaimer : this is for tests & development only !
